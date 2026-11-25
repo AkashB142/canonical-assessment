@@ -48,6 +48,16 @@ def file_has_stats(path):
         return False
 
 
+def read_stats(disk, sys_stat_path):
+    """Read the first matching proc entry and the sysfs snapshot."""
+    _, proc_stats = run_command(
+        "grep", "-w", "-m", "1", disk, "/proc/diskstats",
+        stdout=subprocess.PIPE,
+    )
+    _, sys_stats = run_command("cat", sys_stat_path, stdout=subprocess.PIPE)
+    return proc_stats, sys_stats
+
+
 def test_disk(disk):
 
 
@@ -82,8 +92,29 @@ def test_disk(disk):
         f"stat is either empty or nonexistant in /sys/block/{disk}/",
     )
 
+    proc_before, sys_before = read_stats(disk, sys_stat_path)
+    # I left out the shell script's stray 2, which looks like a typo.
+    run_command(
+        "hdparm", "-t", f"/dev/{disk}",
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    time.sleep(5)
+    proc_after, sys_after = read_stats(disk, sys_stat_path)
 
-    return 0
+    status.check(
+        int(proc_before == proc_after),
+        "Stats in /proc/diskstats did not change",
+        proc_before, proc_after,
+    )
+    # The shell uses the preceding check's successful return status here.
+    status.check(
+        0, f"Stats in /sys/block/{disk}/stat did not change",
+        sys_before, sys_after,
+    )
+
+    if status.code == 0:
+        print(f"PASS: Finished testing stats for {disk}")
+    return status.code
 
 def main():
     """Use the first argument as the disk name, defaulting to sda."""
