@@ -37,8 +37,10 @@ def run_command(*args, stdout=None, stderr=None):
 
     code = result.returncode
     if code < 0:
-        code = 128 - code    # Convert signal return codes to Bash exit statuses
-    return code, (result.stdout or "").rstrip("\n")   # Return the captured output for the before/after comparison
+        # Convert signal return codes to Bash exit statuses
+        code = 128 - code
+    # Return the captured output for the before/after comparison
+    return code, (result.stdout or "").rstrip("\n")
 
 
 def file_has_stats(path):
@@ -46,7 +48,8 @@ def file_has_stats(path):
     try:
         return path.stat().st_size > 0
         # We could use run_command("test", "-s", "/sys/block/sda/stat"), but
-        # path.stat() checks the size directly without finding or launching `test`.
+        # path.stat() checks the size directly without finding or launching
+        # `test`.
     except OSError:
         return False
 
@@ -72,20 +75,28 @@ def test_disk(disk):
     code, _ = run_command("grep", "-w", "-q", disk, "/proc/partitions")
     status.check(code, f"Disk {disk} not found in /proc/partitions")
 
-    code, _ = run_command("grep", "-w", "-q", "-m", "1", disk, "/proc/diskstats")
+    code, _ = run_command(
+        "grep", "-w", "-q", "-m", "1", disk, "/proc/diskstats"
+    )
     status.check(code, f"Disk {disk} not found in /proc/diskstats")
 
-
-    block_pattern = f"/sys/block/*{glob.escape(disk)}*"  # Match any entry in /sys/block that contains the disk name.
-    code, _ = run_command("ls", *(glob.glob(block_pattern) or [f"/sys/block/*{disk}*"]),   # Pass the unmatched pattern to ls so it reports an error instead of listing the current directory.
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,)   # Use ls here because the disk name is a folder entry in /sys/block.
+    # Match any entry in /sys/block that contains the disk name.
+    block_pattern = f"/sys/block/*{glob.escape(disk)}*"
+    # Pass the unmatched pattern to ls so it reports an error instead of
+    # listing the current directory.
+    # Use ls here because the disk name is a folder entry in /sys/block.
+    code, _ = run_command(
+        "ls", *(glob.glob(block_pattern) or [f"/sys/block/*{disk}*"]),
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
     status.check(code, f"Disk {disk} not found in /sys/block")
 
-
     sys_stat_path = Path(f"/sys/block/{disk}/stat")
-    # The directory check only finds the drive. Check that its stat file has a nonzero size
+    # The directory check only finds the drive. Check that its stat file
+    # has a nonzero size
     status.check(
-        int(not file_has_stats(sys_stat_path)),    #not to change True(1) to success status(0)
+        # not to change True(1) to success status(0)
+        int(not file_has_stats(sys_stat_path)),
         f"stat is either empty or nonexistant in /sys/block/{disk}/",
     )
 
@@ -96,6 +107,7 @@ def test_disk(disk):
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     time.sleep(5)
+    # A failed second read can still pass, as in the original script.
     proc_after, sys_after = read_stats(disk, sys_stat_path)
 
     status.check(
