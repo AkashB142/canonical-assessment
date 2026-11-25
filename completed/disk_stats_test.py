@@ -40,7 +40,25 @@ def run_command(*args, stdout=None, stderr=None):
 
 
 def test_disk(disk):
-    #test_flow
+    if "pmem" in disk:
+        print(f"Disk {disk} appears to be an NVDIMM, skipping")
+        return 0
+
+    status = TestStatus()
+
+    code, _ = run_command("grep", "-w", "-q", disk, "/proc/partitions")
+    status.check(code, f"Disk {disk} not found in /proc/partitions")
+
+    code, _ = run_command("grep", "-w", "-q", "-m", "1", disk, "/proc/diskstats")
+    status.check(code, f"Disk {disk} not found in /proc/diskstats")
+
+    block_pattern = f"/sys/block/*{glob.escape(disk)}*"  # Match any entry in /sys/block that contains the disk name.
+    code, _ = run_command("ls", *(glob.glob(block_pattern) or [f"/sys/block/*{disk}*"]),
+                          # Pass the unmatched pattern to ls so it reports an error instead of listing the current directory.
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL, )  # Use ls here because the disk name is a folder entry in /sys/block.
+    status.check(code, f"Disk {disk} not found in /sys/block")
+
     return 0
 
 def main():
