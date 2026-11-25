@@ -38,7 +38,7 @@ def run_command(*args, stdout=None, stderr=None):
     code = result.returncode
     if code < 0:
         code = 128 - code    # Convert signal return codes to Bash exit statuses
-    return code, (result.stdout or "").rstrip("\n")   # Return the captured output for the before-and-after comparison
+    return code, (result.stdout or "").rstrip("\n")   # Return the captured output for the before/after comparison
 
 
 def file_has_stats(path):
@@ -103,9 +103,10 @@ def test_disk(disk):
         "Stats in /proc/diskstats did not change",
         proc_before, proc_after,
     )
-    # The shell uses the preceding check's successful return status here.
+    # The shell skipped this comparison, so I added it here.
     status.check(
-        0, f"Stats in /sys/block/{disk}/stat did not change",
+        int(sys_before == sys_after),
+        f"Stats in /sys/block/{disk}/stat did not change",
         sys_before, sys_after,
     )
 
