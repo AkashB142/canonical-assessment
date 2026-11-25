@@ -1,0 +1,90 @@
+Test Case for SSH Connectivity Using Password and Public-Key Authentication
+
+Objective:
+
+I want to check that I can:
+Connect to an Ubuntu server from a remote machine.
+Log in successfully, lets say as akash.
+Run a command on the server. 
+
+I will test password and public-key authentication in separate SSH connections so
+that one method cannot cover up a failure in the other.
+
+
+Setup:
+
+Use an Ubuntu test server running OpenSSH. Note its IP address or
+   hostname and make sure the client can reach the SSH port.
+
+Create a regular test account named akash on the server. Set a known
+   password for the account and allow both password and public-key
+   authentication for it.
+
+Create a dedicated SSH key pair on the client. Add the public key to
+   the akash account's ~/.ssh/authorized_keys file on the server. Keep
+   the private key on the client.
+
+Verify the server's SSH host-key fingerprint before trusting it.
+
+
+Tools:
+
+Use ssh (the OpenSSH client) to connect to the Ubuntu server. Use ssh -v to see the connection details and confirm which login method worked.
+ssh-keygen to create the test key pair.
+whoami to check the account used by the remote session.
+
+
+
+Scenario 1 - Connect using the account password
+
+1. Start a fresh SSH connection to the server as akash. Configure the
+   client to try only password authentication for this connection.
+
+   e.g. command:
+   ssh -v -S none -o PreferredAuthentications=password akash@SERVER
+
+   *Replace SERVER with the server's hostname or IP address.
+
+2. Enter the password for the akash account when prompted.
+3. Once the remote shell opens, run whoami and check the output.
+4. Close the session with exit.
+
+Pass: The SSH connection details show using "password",
+the remote shell opens, and whoami prints akash.
+
+Fail: SSH does not confirm password authentication, the
+remote shell does not open, or whoami does not print akash.
+
+
+
+Scenario 2 - Connect using the SSH key
+
+1. Start a fresh SSH connection to the same server as akash. Specify the test private key and configure the client to try only
+   public-key authentication for this connection.
+
+   e.g command:
+   ssh -v -S none -o PreferredAuthentications=publickey -o IdentitiesOnly=yes -i "TEST_KEY" akash@SERVER
+
+   *Use the same server address as in Scenario 1 and replace TEST_KEY with the path to the test private key.
+
+
+2. If the private key has a passphrase (local lock), enter it to unlock the key locally.
+3. Once the remote shell opens, run whoami and check the output.
+4. Close the session with exit.
+
+Pass: The SSH connection details show using "publickey",
+the remote shell opens, and whoami prints akash.
+
+Fail: SSH does not confirm public-key authentication, the
+remote shell does not open, or whoami does not print akash.
+
+If either connection is refused or times out before authentication,
+record the connectivity problem and rerun that scenario once the SSH
+service is reachable.
+
+
+Teardown
+
+Close any remaining test sessions. Remove the test account and its
+authorized key from the server, delete the dedicated key pair from the
+client, and restore any SSH server settings changed for the test.
