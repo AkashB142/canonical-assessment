@@ -20,6 +20,25 @@ class TestStatus:
         for item in output:
             print(f"output: {item}")
 
+
+def run_command(*args, stdout=None, stderr=None):
+    """Run a system command and return its shell style status and output"""
+    try:
+        result = subprocess.run(
+            args, stdout=stdout, stderr=stderr, text=True, check=False
+        )
+    except OSError as error:
+        if stderr != subprocess.DEVNULL:
+            print(f"{args[0]}: {error}", file=sys.stderr)
+        return (127 if isinstance(error, FileNotFoundError) else 126), ""
+
+    code = result.returncode
+    if code < 0:
+        code = 128 - code    # Convert signal return codes to Bash exit statuses
+    return code, (result.stdout or "").rstrip("\n")   # Return the captured output for the before-and-after comparison
+
+
+
 def test_disk(disk):
     #test_flow
     return 0
