@@ -38,19 +38,34 @@ def run_command(*args, stdout=None, stderr=None):
     return code, (result.stdout or "").rstrip("\n")   # Return the captured output for the before-and-after comparison
 
 
+def file_has_stats(path):
+    """Test the file size, same as Bash's -s test"""
+    try:
+        return path.stat().st_size > 0
+        # We could use run_command("test", "-s", "/sys/block/sda/stat"), but
+        # path.stat() checks the size directly without finding or launching `test`.
+    except OSError:
+        return False
+
 
 def test_disk(disk):
+
+
     if "pmem" in disk:
         print(f"Disk {disk} appears to be an NVDIMM, skipping")
         return 0
+
+
 
     status = TestStatus()
 
     code, _ = run_command("grep", "-w", "-q", disk, "/proc/partitions")
     status.check(code, f"Disk {disk} not found in /proc/partitions")
 
+
     code, _ = run_command("grep", "-w", "-q", "-m", "1", disk, "/proc/diskstats")
     status.check(code, f"Disk {disk} not found in /proc/diskstats")
+
 
     block_pattern = f"/sys/block/*{glob.escape(disk)}*"  # Match any entry in /sys/block that contains the disk name.
     code, _ = run_command("ls", *(glob.glob(block_pattern) or [f"/sys/block/*{disk}*"]),
@@ -58,6 +73,15 @@ def test_disk(disk):
                           stdout=subprocess.DEVNULL,
                           stderr=subprocess.DEVNULL, )  # Use ls here because the disk name is a folder entry in /sys/block.
     status.check(code, f"Disk {disk} not found in /sys/block")
+
+
+    sys_stat_path = Path(f"/sys/block/{disk}/stat")
+    # The directory check only finds the drive. Check that its stat file has a nonzero size
+    status.check(
+        int(not file_has_stats(sys_stat_path)),    #not to change True(1) to success status(0)
+        f"stat is either empty or nonexistant in /sys/block/{disk}/",
+    )
+
 
     return 0
 
