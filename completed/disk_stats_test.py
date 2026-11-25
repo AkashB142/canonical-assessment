@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+"""Check Linux disk statistics using the system's hdparm command."""
+
 import glob
 import subprocess
 import sys
@@ -59,29 +62,23 @@ def read_stats(disk, sys_stat_path):
 
 
 def test_disk(disk):
-
-
+    """Run the disk checks, then sample the statistics around a timed read."""
     if "pmem" in disk:
         print(f"Disk {disk} appears to be an NVDIMM, skipping")
         return 0
-
-
 
     status = TestStatus()
 
     code, _ = run_command("grep", "-w", "-q", disk, "/proc/partitions")
     status.check(code, f"Disk {disk} not found in /proc/partitions")
 
-
     code, _ = run_command("grep", "-w", "-q", "-m", "1", disk, "/proc/diskstats")
     status.check(code, f"Disk {disk} not found in /proc/diskstats")
 
 
     block_pattern = f"/sys/block/*{glob.escape(disk)}*"  # Match any entry in /sys/block that contains the disk name.
-    code, _ = run_command("ls", *(glob.glob(block_pattern) or [f"/sys/block/*{disk}*"]),
-                          # Pass the unmatched pattern to ls so it reports an error instead of listing the current directory.
-                          stdout=subprocess.DEVNULL,
-                          stderr=subprocess.DEVNULL, )  # Use ls here because the disk name is a folder entry in /sys/block.
+    code, _ = run_command("ls", *(glob.glob(block_pattern) or [f"/sys/block/*{disk}*"]),   # Pass the unmatched pattern to ls so it reports an error instead of listing the current directory.
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,)   # Use ls here because the disk name is a folder entry in /sys/block.
     status.check(code, f"Disk {disk} not found in /sys/block")
 
 
@@ -115,6 +112,7 @@ def test_disk(disk):
     if status.code == 0:
         print(f"PASS: Finished testing stats for {disk}")
     return status.code
+
 
 def main():
     """Use the first argument as the disk name, defaulting to sda."""
